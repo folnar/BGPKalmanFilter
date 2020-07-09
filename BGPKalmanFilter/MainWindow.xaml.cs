@@ -7,6 +7,7 @@ using System.Data;
 using System;
 using DACMath;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace BGPKalmanFilter
 {
@@ -25,8 +26,20 @@ namespace BGPKalmanFilter
             InitializeComponent();
             DataContext = this;
 
+            PlotQtyDict = new Dictionary<string, string>()
+            {
+                { "N", "Population" },
+                { "y", "Production (per capita)" },
+                { "A", "TFP" },
+                { "K", "Kapital Supply" },
+                { "L", "Labor Supply" }
+            };
+            PlotType = "N";
+
             dpp = DataPointPreferences.CreateObject(Colors.Black, 1, 4, 4);
-            ap = AxesPreferences2D.CreateObject(Colors.Black, Colors.Black, 1, 1, 40, 1);
+            lp = LabelPreferences.NewLabelPreferences(Brushes.Black, Brushes.Gray, new FontFamily("Century Gothic"), 18, FontStyles.Italic, FontWeights.SemiBold);
+            ap = AxesPreferences2D.CreateObject(Colors.Black, Colors.Black, 1, 1, 40, 1, lp, lp);
+            cp = CurvePreferences.NewCurvePreferences(Brushes.DarkOliveGreen, 1, new DoubleCollection() { 3, 2 });
 
             dt = new DataTable();
         }
@@ -55,7 +68,13 @@ namespace BGPKalmanFilter
         }
 
         private readonly DataPointPreferences dpp;
+        private readonly LabelPreferences lp;
         private readonly AxesPreferences2D ap;
+        private readonly CurvePreferences cp;
+        private PWTCountry country = null;
+        public Dictionary<string, string> PlotQtyDict { get; set; }
+        public string PlotType { get; set; }
+        private Dictionary<string, bool> HasBeenPlotted = new Dictionary<string, bool>();
 
         private void KalmanFilterButton_Click(object sender, RoutedEventArgs e)
         {
@@ -121,72 +140,122 @@ namespace BGPKalmanFilter
             for (int idx = 0; idx < x.ColCount; ++idx)
                 pc.Add(new Point(t[0, idx], x[1, idx]));
 
-            ResultsPlot.PlotCurve2D(pc);
+            ResultsPlot.PlotCurve2D(pc, cp);
             ResultsPlot.PlotPoints2D(pc, dpp);
         }
 
         private void CountriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            PWTCountry country = (PWTCountry)(sender as ListView).SelectedItem;
+            KalmanFilterButton.IsEnabled = true;
+            country = (PWTCountry)(sender as ListView).SelectedItem;
+            PlotCountryValues();
+        }
+
+        private void PlotCountryValues()
+        {
+            if (country == null) return;
             string countryFilter = $"countrycode = '{country.CountryCode}'";
 
             int minYear = int.MaxValue;
             int maxYear = int.MinValue;
-            double minRGDPopc = double.MaxValue;
-            double maxRGDPopc = double.MinValue;
+            double minYAxisValue = double.MaxValue;
+            double maxYAxisValue = double.MinValue;
 
             PointCollection pc = new PointCollection();
             foreach (DataRow dr in dt.Select(countryFilter, "year ASC"))
             {
                 if (!int.TryParse(dr["year"].ToString(), out int year)) { continue; }
-                if (!double.TryParse(dr["pop"].ToString(), out double pop)) { continue; }
-                if (!double.TryParse(dr["rgdpo"].ToString(), out double rgdpo)) { continue; }
-                if (!double.TryParse(dr["emp"].ToString(), out double emp)) { continue; }
-                if (!double.TryParse(dr["rtfpna"].ToString(), out double rtfpna)) { continue; }
-                if (!double.TryParse(dr["rnna"].ToString(), out double rnna)) { continue; }
+                double pop = 0;
+                if ((PlotType == "y" || PlotType == "N") && !double.TryParse(dr["pop"].ToString(), out pop)) { continue; }
+                double rgdpo = 0;
+                if (PlotType == "y" && !double.TryParse(dr["rgdpo"].ToString(), out rgdpo)) { continue; }
+                double emp = 0;
+                if (PlotType == "L" && !double.TryParse(dr["emp"].ToString(), out emp)) { continue; }
+                double rtfpna = 0;
+                if (PlotType == "A" && !double.TryParse(dr["rtfpna"].ToString(), out rtfpna)) { continue; }
+                double rnna = 0;
+                if (PlotType == "K" && !double.TryParse(dr["rnna"].ToString(), out rnna)) { continue; }
 
-                double rgdpopc = rgdpo / pop;
+                // WE NEED A PLOTTYPE CLASS TO ENCAPSULATE WHETHER IT IS A PER CAPITA TYPE AND TO CLEAN THIS STUFF UP.
+                // CLASS COULD CONTAIN A STRING CORRELATING TO DB FIELD NAME SINCE THEY'RE ALL DOUBLES.
+                double YValue;
+                switch (PlotType)
+                {
+                    case "N":
+                        YValue = pop;
+                        break;
+                    case "y":
+                        YValue = rgdpo / pop;
+                        break;
+                    case "L":
+                        YValue = emp;
+                        break;
+                    case "A":
+                        YValue = rtfpna;
+                        break;
+                    case "K":
+                        YValue = rnna;
+                        break;
+                    default:
+                        YValue = 0;
+                        break;
+                }
 
                 minYear = Math.Min(year, minYear);
                 maxYear = Math.Max(year, maxYear);
-                minRGDPopc = Math.Min(rgdpopc, minRGDPopc);
-                maxRGDPopc = Math.Max(rgdpopc, maxRGDPopc);
+                minYAxisValue = Math.Min(YValue, minYAxisValue);
+                maxYAxisValue = Math.Max(YValue, maxYAxisValue);
 
-                pc.Add(new Point(year, rgdpopc));
+                pc.Add(new Point(year, YValue));
             }
 
-            countryFilter += $" AND year = {minYear}";
-            DataRow startingDR = dt.Select(countryFilter).FirstOrDefault();
-            if (double.TryParse(startingDR["rgdpo"].ToString(), out double startingRgdpo))
-                if (double.TryParse(startingDR["pop"].ToString(), out double startingPop))
+            if (!HasBeenPlotted.ContainsKey(country.CountryCode))
+            {
+                countryFilter += $" AND year = {minYear}";
+                DataRow startingDR = dt.Select(countryFilter).FirstOrDefault();
+                if (startingDR == null)
                 {
-                    country.StartingRGDPopc = startingRgdpo / startingPop;
-                    country.StartingPopulation = startingPop;
+                    MessageBox.Show($"No data for: {country.CountryName}");
+                    return;
                 }
+                if (double.TryParse(startingDR["rgdpo"].ToString(), out double startingRgdpo))
+                    if (double.TryParse(startingDR["pop"].ToString(), out double startingPop))
+                    {
+                        country.StartingRGDPopc = startingRgdpo / startingPop;
+                        country.StartingPopulation = startingPop;
+                    }
+                    else
+                        MessageBox.Show("trouble parsing starting pop");
                 else
-                    MessageBox.Show("trouble parsing starting pop");
-            else
-                MessageBox.Show("trouble parsing starting rgdpo");
+                    MessageBox.Show("trouble parsing starting rgdpo");
 
-            if (double.TryParse(startingDR["emp"].ToString(), out double startingLabor))
-                country.StartingLaborSupply = startingLabor;
-            else
-                MessageBox.Show("trouble parsing starting labor supply");
+                if (double.TryParse(startingDR["emp"].ToString(), out double startingLabor))
+                    country.StartingLaborSupply = startingLabor;
+                else
+                    MessageBox.Show("trouble parsing starting labor supply");
 
-            if (double.TryParse(startingDR["rtfpna"].ToString(), out double startingTFP))
-                country.StartingTFP = startingTFP;
-            else
-                MessageBox.Show("trouble parsing starting TFP");
+                if (double.TryParse(startingDR["rtfpna"].ToString(), out double startingTFP))
+                    country.StartingTFP = startingTFP;
+                else
+                    MessageBox.Show("trouble parsing starting TFP");
 
-            if (double.TryParse(startingDR["rnna"].ToString(), out double startingCapital))
-                country.StartingCapitalStock = startingCapital;
-            else
-                MessageBox.Show("trouble parsing starting capital stock");
+                if (double.TryParse(startingDR["rnna"].ToString(), out double startingCapital))
+                    country.StartingCapitalStock = startingCapital;
+                else
+                    MessageBox.Show("trouble parsing starting capital stock");
+
+                HasBeenPlotted.Add(country.CountryCode, true);
+            }
 
             ResultsPlot.ClearPlotArea();
-            ResultsPlot.SetAxes(minYear, maxYear, minRGDPopc, maxRGDPopc, ap);
-            ResultsPlot.PlotCurve2D(pc);
+            ResultsPlot.SetAxes(minYear, maxYear, minYAxisValue, maxYAxisValue, ap);
+            ResultsPlot.PlotCurve2D(pc, cp);
             ResultsPlot.PlotPoints2D(pc, dpp);
+        }
+
+        private void PlotTypeMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            PlotCountryValues();
         }
     }
 }

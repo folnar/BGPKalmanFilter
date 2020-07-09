@@ -35,8 +35,8 @@
             Width="120"
             Margin="15,0,15,0"
             HorizontalAlignment="Left"
-            SelectionChanged="CountriesListView_SelectionChanged"
-            ItemsSource="{Binding CountriesViewModel.CountryItems}">
+            ItemsSource="{Binding CountriesViewModel.CountryItems}"
+            SelectionChanged="CountriesListView_SelectionChanged">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding CountryName}" />
@@ -65,9 +65,29 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Click="KalmanFilterButton_Click"
+            IsEnabled="False"
             Template="{DynamicResource ButtonBaseControlTemplate1}">
             LQE
         </Button>
+        <Label
+            Grid.Row="3"
+            Grid.Column="0"
+            Margin="15,35,15,0"
+            VerticalAlignment="Top"
+            Content="Plot Type:" />
+        <ComboBox
+            x:Name="PlotTypeMenu"
+            Grid.Row="3"
+            Grid.Column="0"
+            Height="25"
+            Margin="15,60,15,0"
+            VerticalAlignment="Top"
+            DisplayMemberPath="Value"
+            IsEditable="False"
+            ItemsSource="{Binding PlotQtyDict}"
+            SelectedValue="{Binding PlotType}"
+            SelectedValuePath="Key"
+            SelectionChanged="PlotTypeMenu_SelectionChanged" />
         <Border
             Grid.Row="1"
             Grid.RowSpan="3"

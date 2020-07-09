@@ -84,18 +84,6 @@ namespace BGPKalmanFilter
 
             ResultsPlot.PlotCurve2D(pc);
             ResultsPlot.PlotPoints2D(pc, dpp);
-
-            //Scraps(sender, e);
-        }
-
-        private void Scraps(object sender, RoutedEventArgs e)
-        {
-            MathMatrix Y = MathMatrix.CreateMatrix(4, 2);
-            Y.LoadMatrix(new double[4][] { new double[2] { 1, 2 }, new double[2] { 3, 4 }, new double[2] { 5, 6 }, new double[2] { 7, 8 } });
-            MathMatrix YT = MatrixOperations.Transpose(Y);
-
-            //Matrix X = MatrixOperations.Multiply(Y, YT);
-            MathMatrix X = Y * YT;
         }
     }
 }
