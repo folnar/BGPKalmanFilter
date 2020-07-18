@@ -1,4 +1,6 @@
-﻿namespace BGPKalmanFilter
+﻿using System.Collections.Generic;
+
+namespace BGPKalmanFilter
 {
     public class PWTCountry
     {
@@ -11,6 +13,8 @@
         public double StartingLaborSupply { get; internal set; }
         public double StartingTFP { get; internal set; }
         public double StartingCapitalStock { get; internal set; }
+
+        internal List<PWTObservation> Observations { get; set; }
 
         private PWTCountry() { }
 
