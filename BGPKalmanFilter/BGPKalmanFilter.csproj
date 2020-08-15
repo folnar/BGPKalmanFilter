@@ -61,6 +61,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="CountryVM.cs" />
     <Compile Include="FallingObject.xaml.cs">
       <DependentUpon>FallingObject.xaml</DependentUpon>
     </Compile>
