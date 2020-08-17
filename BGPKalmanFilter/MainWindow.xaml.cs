@@ -19,6 +19,7 @@ namespace BGPKalmanFilter
         private readonly DataPointPreferences dpp;
         private readonly DataPointPreferences dpp2;
         private readonly LabelPreferences xlp;
+        private readonly LabelPreferences xlp2;
         private readonly LabelPreferences ylp;
         private readonly AxesPreferences2D ap;
         private readonly CurvePreferences cp;
@@ -60,6 +61,7 @@ namespace BGPKalmanFilter
             dpp = DataPointPreferences.CreateObject(Colors.Black, 1, 4, 4);
             dpp2 = DataPointPreferences.CreateObject(Colors.RosyBrown, 1, 4, 4);
             xlp = LabelPreferences.NewLabelPreferences(Brushes.Black, Brushes.Gray, new FontFamily("Century Gothic"), 18, FontStyles.Italic, FontWeights.SemiBold);
+            xlp2 = LabelPreferences.NewLabelPreferences(Brushes.Black, Brushes.Transparent, new FontFamily("Century Gothic"), 18, FontStyles.Italic, FontWeights.SemiBold);
             ylp = LabelPreferences.NewLabelPreferences(Brushes.Tomato, Brushes.Transparent, new FontFamily("Century Gothic"), 18, FontStyles.Normal, FontWeights.SemiBold, LabelOrientations.VerticalBottomToTop);
             ap = AxesPreferences2D.CreateObject(Colors.Black, Colors.Black, 1, 1, 40, 1);
             cp = CurvePreferences.NewCurvePreferences(Brushes.DarkOliveGreen, 1, new DoubleCollection() { 3, 2 });
@@ -145,7 +147,7 @@ namespace BGPKalmanFilter
 
             MathMatrix H = MathMatrix.CreateMatrix(1, 3, new double[] { 1, 1, 1 });
             MathMatrix HT = MatrixOperations.Transpose(H);
-            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { -0.1, 0, 0, 0, -0.1, 0, 0, 0, -0.1 });
             MathMatrix I = MatrixOperations.Identity(3);
 
             MathMatrix x = MathMatrix.CreateMatrix(3, numXVals, 0);
@@ -163,7 +165,7 @@ namespace BGPKalmanFilter
                 MessageBox.Show("Covariance term needs to be a double value.");
                 return;
             }
-            MathMatrix P = MathMatrix.CreateMatrix(3, 3, covterm);
+            MathMatrix P = MathMatrix.CreateMatrix(3, 3, new double[] { covterm, 0, 0, 0, covterm, 0, 0, 0, covterm });
 
             //for (int k = 1; k < numXVals; ++k)
             for (int k = 0; k < numXVals; ++k)
@@ -183,8 +185,6 @@ namespace BGPKalmanFilter
             }
 
             ResultsPlot.ClearPlotArea();
-            ap.XLabel = XAxisLabel.NewAxisLabel("Year", 0.5, 15, xlp);
-            ap.YLabel = YAxisLabel.NewAxisLabel(KalmanFilterPlotQtyDict[KalmanFilterPlotType], 0.5, 15, ylp);
             int kalmanrowidx = KalmanFilterPlotType == "n" ? 2 : KalmanFilterPlotType == "s" ? 1 : KalmanFilterPlotType == "g" ? 0 : -1;
             if (kalmanrowidx == -1)
             {
@@ -198,7 +198,9 @@ namespace BGPKalmanFilter
             double minY = new double[] { numsOnlyVec.Min(), xt.RowVectorArray(kalmanrowidx).Min() }.Min();
             double maxY = new double[] { numsOnlyVec.Max(), xt.RowVectorArray(kalmanrowidx).Max() }.Max();
 
-            ResultsPlot.SetAxes(minYear, maxYear, minY, maxY, ap);
+            ap.YLabel = YAxisLabel.NewAxisLabel(KalmanFilterPlotQtyDict[KalmanFilterPlotType], 0.5, 15, ylp);
+            ap.XLabel = XAxisLabel.NewAxisLabel("Year", minY < 0 ? 0.05 : 0.5, 15, minY < 0 ? xlp2 : xlp);
+            ResultsPlot.SetAxes(minYear, maxYear, minY, maxY, ap, drawHorAxisAtY0: minY < 0);
             ResultsPlot.SetPlotGridLines(20, 20);
 
             PointCollection pc = new PointCollection();
