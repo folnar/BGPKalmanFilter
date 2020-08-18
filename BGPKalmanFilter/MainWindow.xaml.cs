@@ -129,9 +129,9 @@ namespace BGPKalmanFilter
                 }
             }
 
-            // ONLY NEEDED FOR PROCESSES WHERE ONLY STARTING DATA IS USED.
-            //for (int k = 1; k < numsteps; ++k)
-            //    xt.AssignColumn(F * xt.ColumnVector(k - 1) + G * u, k);
+            // state matrix
+            // x(k) = Fx(k-1) + Gu(k-1) which can be seen below in Kalman filter loop.
+            MathMatrix x = MathMatrix.CreateMatrix(3, numXVals, 0);
 
             // process matrix moves state matrix from state k to k + 1
             MathMatrix F = MatrixOperations.Identity(3);
@@ -141,21 +141,7 @@ namespace BGPKalmanFilter
             MathMatrix u = MathMatrix.CreateMatrix(1, 1, 0);
             MathMatrix G = MathMatrix.CreateMatrix(3, 1, new double[] { 0, 0, 0 });
 
-            MathMatrix H = MathMatrix.CreateMatrix(1, 3, new double[] { 1, 1, 1 });
-            MathMatrix HT = MatrixOperations.Transpose(H);
-            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { -0.1, 0, 0, 0, -0.1, 0, 0, 0, -0.1 });
-            MathMatrix I = MatrixOperations.Identity(3);
-
-            MathMatrix x = MathMatrix.CreateMatrix(3, numXVals, 0);
-            x[0, 0] = country.AGrowthRateHT[minYear];
-            x[1, 0] = country.SavingsRateHT[minYear];
-            x[2, 0] = country.LGrowthRateHT[minYear];
-
-            MathMatrix R = MathMatrix.CreateMatrix(1, 1, 3);
-            MathMatrix sqrtR = MatrixOperations.Sqrt_Elmtwise(R);
-            MathMatrix v = sqrtR * Distributions.Normal(numXVals);
-            MathMatrix z = H * xt + v;
-
+            // state error covariance matrix
             if (!double.TryParse(CovarianceTerm.Text, out double covterm))
             {
                 MessageBox.Show("Covariance term needs to be a double value.");
@@ -163,10 +149,29 @@ namespace BGPKalmanFilter
             }
             MathMatrix P = MathMatrix.CreateMatrix(3, 3, new double[] { covterm, 0, 0, 0, covterm, 0, 0, 0, covterm });
 
-            //for (int k = 1; k < numXVals; ++k)
+            // observation matrix
+            MathMatrix H = MathMatrix.CreateMatrix(1, 3, new double[] { 1, 1, 1 });
+            MathMatrix HT = MatrixOperations.Transpose(H);
+
+            // process noise covariance matrix
+            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+
+            MathMatrix I = MatrixOperations.Identity(3);
+
+            // measurement noise covariance matrix
+            MathMatrix R = MathMatrix.CreateMatrix(1, 1, 3);
+            MathMatrix sqrtR = MatrixOperations.Sqrt_Elmtwise(R);
+
+            // measurement noise
+            MathMatrix v = sqrtR * Distributions.Normal(numXVals);
+
+            // observation / measurement
+            // y(k) = Hxt(k) + v(k);
+            MathMatrix y = H * xt + v;
+
+            // Kalman filter
             for (int k = 0; k < numXVals; ++k)
             {
-                //x.AssignColumn(F * xt.ColumnVector(k - 1) + G * u, k);
                 x.AssignColumn(F * xt.ColumnVector(k) + G * u, k);
                 P = F * P * FT + Q;
 
@@ -176,7 +181,7 @@ namespace BGPKalmanFilter
                 Kdenominator[0, 0] = 1 / Kdenominator[0, 0];
                 MathMatrix K = Knumerator * Kdenominator;
 
-                x.AssignColumn(x.ColumnVector(k) + K * (z.ColumnVector(k) - H * x.ColumnVector(k)), k);
+                x.AssignColumn(x.ColumnVector(k) + K * (y.ColumnVector(k) - H * x.ColumnVector(k)), k);
                 P = (I - K * H) * P;
             }
 
@@ -207,7 +212,7 @@ namespace BGPKalmanFilter
                 pc2.Add(new Point(t[0, idx], xt[kalmanrowidx, idx]));
             }
             //ResultsPlot.PlotCurve2D(pc, cp);
-            ResultsPlot.PlotPoints2D(pc, dpp); // THIS SHOULD ACTUALLY ONLY PLOT TRUE DATA POINTS AND NOT INTERPOLATED ONES.
+            ResultsPlot.PlotPoints2D(pc, dpp);
             ResultsPlot.PlotCurve2D(pc2, cp2);
             //ResultsPlot.PlotPoints2D(pc2, dpp2);
         }
