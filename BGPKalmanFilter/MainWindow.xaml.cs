@@ -3,11 +3,11 @@ using DACMath;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Data.SqlClient;
 using System.Data;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
 
 namespace BGPKalmanFilter
 {
@@ -32,7 +32,8 @@ namespace BGPKalmanFilter
 
         public CountriesListVM CountriesViewModel { get; set; }
 
-        private readonly DataTable dt;
+        private DataTable dt;
+        private DataSet ds { get; set; }
 
         public MainWindow()
         {
@@ -68,26 +69,21 @@ namespace BGPKalmanFilter
             cp2 = CurvePreferences.NewCurvePreferences(Brushes.DarkRed, 1, new DoubleCollection() { 3, 2 });
 
             dt = new DataTable();
+            ds = new DataSet();
+            PopulatePWT91DataTable();
         }
 
         private void LoadObservationsButton_Click(object sender, RoutedEventArgs e)
         {
+            PopulatePWT91DataTable();
+        }
+
+        private void PopulatePWT91DataTable()
+        {
             dt.Clear();
 
-            string connstr = @"Server=DAC-VM-SRVR\SQLEXPRESS;Database=research_WPT_9_1;User Id=wptuser;Password=Ue3j!t!;";
-            using (SqlConnection dbh = new SqlConnection(connstr))
-            {
-                string sqlcmdstr = "SELECT * FROM pwt91 ORDER BY country ASC";
-                using (SqlCommand sth = new SqlCommand(sqlcmdstr, dbh))
-                {
-                    dbh.Open();
-                    using (SqlDataAdapter da = new SqlDataAdapter(sth))
-                    {
-                        da.Fill(dt);
-                    }
-                    dbh.Close();
-                }
-            }
+            ds.ReadXml(new StringReader(Properties.Resources.pwt91));
+            dt = ds.Tables[0];
 
             CountriesViewModel.CountryItems.Clear();
             string[] columns = { "countrycode", "country", "currency_unit" };
