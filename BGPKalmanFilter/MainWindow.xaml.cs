@@ -17,7 +17,6 @@ namespace BGPKalmanFilter
     public partial class MainWindow : Window
     {
         private readonly DataPointPreferences dpp;
-        private readonly DataPointPreferences dpp2;
         private readonly LabelPreferences xlp;
         private readonly LabelPreferences xlp2;
         private readonly LabelPreferences ylp;
@@ -31,9 +30,6 @@ namespace BGPKalmanFilter
         public string KalmanFilterPlotType { get; set; }
 
         public CountriesListVM CountriesViewModel { get; set; }
-
-        private DataTable dt;
-        private DataSet ds { get; set; }
 
         public MainWindow()
         {
@@ -59,8 +55,7 @@ namespace BGPKalmanFilter
             };
             KalmanFilterPlotType = "s";
 
-            dpp = DataPointPreferences.CreateObject(Colors.Black, 1, 4, 4);
-            dpp2 = DataPointPreferences.CreateObject(Colors.RosyBrown, 1, 4, 4);
+            dpp = DataPointPreferences.CreateObject(Colors.RosyBrown, 1, 4, 4);
             xlp = LabelPreferences.NewLabelPreferences(Brushes.Black, Brushes.Gray, new FontFamily("Century Gothic"), 18, FontStyles.Italic, FontWeights.SemiBold);
             xlp2 = LabelPreferences.NewLabelPreferences(Brushes.Black, Brushes.Transparent, new FontFamily("Century Gothic"), 18, FontStyles.Italic, FontWeights.SemiBold);
             ylp = LabelPreferences.NewLabelPreferences(Brushes.Tomato, Brushes.Transparent, new FontFamily("Century Gothic"), 18, FontStyles.Normal, FontWeights.SemiBold, LabelOrientations.VerticalBottomToTop);
@@ -68,8 +63,6 @@ namespace BGPKalmanFilter
             cp = CurvePreferences.NewCurvePreferences(Brushes.DarkOliveGreen, 1, new DoubleCollection() { 3, 2 });
             cp2 = CurvePreferences.NewCurvePreferences(Brushes.DarkRed, 1, new DoubleCollection() { 3, 2 });
 
-            dt = new DataTable();
-            ds = new DataSet();
             PopulatePWT91DataTable();
         }
 
@@ -78,10 +71,10 @@ namespace BGPKalmanFilter
             PopulatePWT91DataTable();
         }
 
+        DataTable dt;
         private void PopulatePWT91DataTable()
         {
-            dt.Clear();
-
+            DataSet ds = new DataSet();
             ds.ReadXml(new StringReader(Properties.Resources.pwt91));
             dt = ds.Tables[0];
 
@@ -147,6 +140,7 @@ namespace BGPKalmanFilter
                 MessageBox.Show("Covariance term needs to be a double value.");
                 return;
             }
+            //MathMatrix P = MathMatrix.CreateMatrix(3, 3, new double[] { -0.1, 0.05, -0.1, 0.001, 0.01, -0.005, -0.005, 0.15, -0.05 });
             MathMatrix P = MathMatrix.CreateMatrix(3, 3, new double[] { covterm, 0, 0, 0, covterm, 0, 0, 0, covterm });
 
             // observation matrix
@@ -154,7 +148,7 @@ namespace BGPKalmanFilter
             MathMatrix HT = MatrixOperations.Transpose(H);
 
             // process noise covariance matrix
-            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+            MathMatrix Q = MathMatrix.CreateMatrix(3, 3, new double[] { -0.01, 0.05, -0.1, 0.001, -0.01, -0.005, -0.005, 0.15, -0.05 });
 
             MathMatrix I = MatrixOperations.Identity(3);
 
@@ -185,7 +179,7 @@ namespace BGPKalmanFilter
                 P = (I - K * H) * P;
             }
 
-            ResultsPlot.ClearPlotArea();
+            ResultsPlot.ClearPlotArea(clearPlotData: true);
             int kalmanrowidx = KalmanFilterPlotType == "n" ? 2 : KalmanFilterPlotType == "s" ? 1 : KalmanFilterPlotType == "g" ? 0 : -1;
             if (kalmanrowidx == -1)
             {
@@ -211,10 +205,8 @@ namespace BGPKalmanFilter
                 pc.Add(new Point(t[0, idx], numsOnlyVec[idx]));
                 pc2.Add(new Point(t[0, idx], xt[kalmanrowidx, idx]));
             }
-            //ResultsPlot.PlotCurve2D(pc, cp);
-            ResultsPlot.PlotPoints2D(pc, dpp);
-            ResultsPlot.PlotCurve2D(pc2, cp2);
-            //ResultsPlot.PlotPoints2D(pc2, dpp2);
+            ResultsPlot.PlotPoints2D($"KalmanFiltered_{country.CountryCode}_{kalmanrowidx}_Points", pc, dpp);
+            ResultsPlot.PlotCurve2D($"KalmanFiltered_{country.CountryCode}_{kalmanrowidx}_Curve", pc2, cp2);
         }
 
         private void CountriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -282,18 +274,23 @@ namespace BGPKalmanFilter
                 pc.Add(new Point(year, YValue));
             }
 
-            ResultsPlot.ClearPlotArea();
+            ResultsPlot.ClearPlotArea(clearPlotData: true);
             ap.XLabel = XAxisLabel.NewAxisLabel("Year", 0.5, 15, xlp);
             ap.YLabel = YAxisLabel.NewAxisLabel(PlotQtyDict[PlotType], 0.5, 15, ylp);
             ResultsPlot.SetAxes(minYear, maxYear, minYAxisValue, maxYAxisValue, ap);
             ResultsPlot.SetPlotGridLines(20, 20);
-            ResultsPlot.PlotCurve2D(pc, cp);
-            ResultsPlot.PlotPoints2D(pc, dpp);
+            ResultsPlot.PlotCurve2D($"{PlotQtyDict[PlotType]}_Curve", pc, cp);
+            ResultsPlot.PlotPoints2D($"{PlotQtyDict[PlotType]}_Points", pc, dpp);
         }
 
         private void PlotTypeMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             PlotCountryValues();
+        }
+
+        private void ResetOriginalPlotButton_Click(object sender, RoutedEventArgs e)
+        {
+            ResultsPlot.ClearPlotArea();
         }
     }
 }

@@ -17,7 +17,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="25" />
+            <RowDefinition Height="30" />
             <RowDefinition Height="350" />
             <RowDefinition Height="35" />
             <RowDefinition Height="35" />
@@ -159,6 +159,16 @@
             HorizontalContentAlignment="Right"
             VerticalContentAlignment="Center"
             Text="0.1" />
+        <Button
+            x:Name="ResetOriginalPlotButton"
+            Grid.Row="0"
+            Grid.Column="2"
+            Width="80"
+            Height="18"
+            Margin="0,8,20,0"
+            HorizontalAlignment="Right"
+            Click="ResetOriginalPlotButton_Click"
+            Content="Original Plot" />
         <Border
             Grid.Row="1"
             Grid.RowSpan="8"

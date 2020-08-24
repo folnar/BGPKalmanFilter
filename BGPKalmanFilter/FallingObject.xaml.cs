@@ -82,8 +82,8 @@ namespace BGPKalmanFilter
             for (int idx = 0; idx < x.ColCount; ++idx)
                 pc.Add(new Point(t[0, idx], x[0, idx]));
 
-            ResultsPlot.PlotCurve2D(pc);
-            ResultsPlot.PlotPoints2D(pc, dpp);
+            ResultsPlot.PlotCurve2D("test", pc);
+            ResultsPlot.PlotPoints2D("test", pc, dpp);
         }
     }
 }
